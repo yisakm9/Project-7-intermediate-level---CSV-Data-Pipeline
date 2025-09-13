@@ -102,3 +102,19 @@ module "iam_glue_role" {
   # Note: The AWSGlueServiceRole managed policy provides the necessary permissions 
   # for Glue jobs, including S3 access and CloudWatch logging.
 }
+
+################################################################################
+# Lambda Preprocessing Function
+################################################################################
+
+module "lambda_preprocessing" {
+  source           = "../../modules/lambda"
+  function_name    = "CSV-Preprocessing-Function-Dev"
+  source_code_zip_path = "../../build/lambda_function.zip" 
+  iam_role_arn     = module.iam_lambda_role.role_arn
+  trigger_bucket_id = module.s3_raw_data.bucket_id
+  
+  environment_variables = {
+    DESTINATION_BUCKET = module.s3_processed_data.bucket_id
+  }
+}

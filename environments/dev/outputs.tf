@@ -23,3 +23,8 @@ output "glue_role_arn" {
   description = "ARN of the IAM role for the Glue ETL job."
   value       = module.iam_glue_role.role_arn
 }
+
+output "lambda_function_name" {
+  description = "The name of the preprocessing Lambda function."
+  value       = module.lambda_preprocessing.function_name
+}

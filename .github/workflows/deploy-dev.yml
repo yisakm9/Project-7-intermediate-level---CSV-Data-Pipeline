@@ -3,11 +3,11 @@ name: 'Deploy to Dev Environment'
 on:
   push:
     branches:
-      - main # Or your development branch
+      - main
 
 permissions:
-  id-token: write   # This is required for requesting the JWT
-  contents: read    # This is required for actions/checkout
+  id-token: write
+  contents: read
 
 jobs:
   terraform-deploy:
@@ -17,21 +17,32 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4 
+      uses: actions/checkout@v4
+
+    #  Prepare Lambda Package 
+    - name: Setup Python
+      uses: actions/setup-python@v5 
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies and create Lambda zip
+      run: |
+        pip install -r src/lambda_function/requirements.txt -t ./build/lambda_package
+        cp src/lambda_function/main.py ./build/lambda_package/
+        cd ./build/lambda_package
+        zip -r ../lambda_function.zip .
+      working-directory: ${{ github.workspace }}
 
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        # Replace with your AWS details. 
-        # It's recommended to create a dedicated IAM role for GitHub Actions.
-        role-to-assume: arn:aws:iam::456202167790:role/githubaction
-        aws-region: us-east-1
-        role-session-name: GitHubActions-Terraform-Deploy
+        role-to-assume: arn:aws:iam::456202167790:role/GitHub-Actions-Role #  Account ID
+        aws-region: us-east-1 
 
     - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
+      uses: hashicorp/setup-terraform@v3 
       with:
-        terraform_version: 1.13.1 # version
+        terraform_version: 1.13.1
 
     - name: Terraform Init
       run: terraform init
@@ -46,6 +57,5 @@ jobs:
       working-directory: ./environments/dev
 
     - name: Terraform Apply
-      # For a production pipeline, you might add a manual approval step here.
       run: terraform apply -auto-approve -input=false
       working-directory: ./environments/dev
