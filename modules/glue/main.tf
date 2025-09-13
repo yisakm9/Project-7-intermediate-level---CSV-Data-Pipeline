@@ -23,4 +23,10 @@ resource "aws_glue_job" "this" {
     python_version  = "3"
   }
   glue_version = "4.0"
+
+  # ADD THIS BLOCK
+  default_arguments = {
+    "--input_path"  = "s3://${var.job_default_args_input_path}/"
+    "--output_path" = "s3://${var.job_default_args_output_path}/"
+  }
 }
