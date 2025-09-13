@@ -2,9 +2,15 @@
 # S3 Buckets
 ################################################################################
 
+# Resource to generate a unique, readable suffix for our resources
+resource "random_pet" "suffix" {
+  length = 2
+}
+
 module "s3_raw_data" {
   source      = "../../modules/s3"
-  bucket_name = "csv-raw-data-bucket-" # CHANGE THIS
+  # Use the random suffix to create a unique bucket name
+  bucket_name = "csv-raw-data-${random_pet.suffix.id}"
   tags = {
     "Zone" = "Raw"
   }
@@ -12,7 +18,7 @@ module "s3_raw_data" {
 
 module "s3_processed_data" {
   source      = "../../modules/s3"
-  bucket_name = "csv-processed-data-bucket-" # CHANGE THIS
+  bucket_name = "csv-processed-data-${random_pet.suffix.id}"
   tags = {
     "Zone" = "Processed"
   }
@@ -20,12 +26,11 @@ module "s3_processed_data" {
 
 module "s3_final_data" {
   source      = "../../modules/s3"
-  bucket_name = "csv-final-data-bucket-" # CHANGE THIS
+  bucket_name = "csv-final-data-${random_pet.suffix.id}"
   tags = {
     "Zone" = "Final"
   }
 }
-
 
 ################################################################################
 # IAM Policies and Roles

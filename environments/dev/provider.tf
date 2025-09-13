@@ -15,3 +15,6 @@ terraform {
 provider "aws" {
   region =  "us-east-1"
 }
+
+# Add this block for the random provider
+provider "random" {}
