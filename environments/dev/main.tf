@@ -118,3 +118,29 @@ module "lambda_preprocessing" {
     DESTINATION_BUCKET = module.s3_processed_data.bucket_id
   }
 }
+
+
+################################################################################
+# AWS Glue for ETL
+################################################################################
+
+# Resource to upload the Glue script to the 'processed' bucket.
+# A dedicated bucket for scripts is also a good practice.
+resource "aws_s3_object" "glue_script" {
+  bucket = module.s3_processed_data.bucket_id
+  key    = "glue_scripts/job.py"
+  source = "../../src/glue_etl_job/job.py"
+  etag   = filemd5("../../src/glue_etl_job/job.py")
+}
+
+module "glue_etl" {
+  source                 = "../../modules/glue"
+  crawler_name           = "CSV-Data-Crawler-Dev"
+  crawler_s3_target_path = module.s3_processed_data.bucket_id
+  crawler_iam_role_arn   = module.iam_glue_role.role_arn
+  database_name          = "csv_data_pipeline_db_dev"
+  
+  job_name               = "CSV-to-Parquet-ETL-Job-Dev"
+  job_iam_role_arn       = module.iam_glue_role.role_arn
+  job_script_s3_path     = "${module.s3_processed_data.bucket_id}/${aws_s3_object.glue_script.key}"
+}
