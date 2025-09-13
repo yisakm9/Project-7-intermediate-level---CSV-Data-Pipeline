@@ -1,0 +1,51 @@
+name: 'Deploy to Dev Environment'
+
+on:
+  push:
+    branches:
+      - main # Or your development branch
+
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
+
+jobs:
+  terraform-deploy:
+    name: 'Terraform Deploy to Dev'
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4 
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        # Replace with your AWS details. 
+        # It's recommended to create a dedicated IAM role for GitHub Actions.
+        role-to-assume: arn:aws:iam::456202167790:role/githubaction
+        aws-region: us-east-1
+        role-session-name: GitHubActions-Terraform-Deploy
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.13.1 # version
+
+    - name: Terraform Init
+      run: terraform init
+      working-directory: ./environments/dev
+
+    - name: Terraform Validate
+      run: terraform validate
+      working-directory: ./environments/dev
+
+    - name: Terraform Plan
+      run: terraform plan -input=false
+      working-directory: ./environments/dev
+
+    - name: Terraform Apply
+      # For a production pipeline, you might add a manual approval step here.
+      run: terraform apply -auto-approve -input=false
+      working-directory: ./environments/dev
