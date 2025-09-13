@@ -98,9 +98,13 @@ module "iam_glue_role" {
   source                  = "../../modules/iam"
   role_name               = "CSV-ETL-Glue-Role-Dev"
   assume_role_policy_json = data.aws_iam_policy_document.glue_assume_role.json
+  
+  # Attach the AWS managed policy for general Glue service functions
   managed_policy_arns     = ["arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"]
-  # Note: The AWSGlueServiceRole managed policy provides the necessary permissions 
-  # for Glue jobs, including S3 access and CloudWatch logging.
+  
+  # ATTACH OUR NEW CUSTOM POLICY
+  create_custom_policy    = true
+  custom_policy_json      = data.aws_iam_policy_document.glue_s3_policy.json
 }
 
 ################################################################################
@@ -143,4 +147,29 @@ module "glue_etl" {
   job_name               = "CSV-to-Parquet-ETL-Job-Dev"
   job_iam_role_arn       = module.iam_glue_role.role_arn
   job_script_s3_path     = "${module.s3_processed_data.bucket_id}/${aws_s3_object.glue_script.key}"
+}
+
+
+# --- Policy for Glue ETL Job S3 Access ---
+data "aws_iam_policy_document" "glue_s3_policy" {
+  statement {
+    actions = [
+      "s3:GetObject",
+      "s3:ListBucket"
+    ]
+    resources = [
+      "arn:aws:s3:::${module.s3_processed_data.bucket_id}",
+      "arn:aws:s3:::${module.s3_processed_data.bucket_id}/*" # Read script and data
+    ]
+  }
+
+  statement {
+    actions = [
+      "s3:PutObject",
+      "s3:DeleteObject" # Often needed for overwriting data
+    ]
+    resources = [
+      "arn:aws:s3:::${module.s3_final_data.bucket_id}/*" # Write final output
+    ]
+  }
 }
