@@ -6,13 +6,15 @@ resource "aws_iam_role" "this" {
 
 # Attachment for custom inline policy
 resource "aws_iam_policy" "custom" {
-  count  = var.custom_policy_json != null ? 1 : 0
+  # This now depends on a simple boolean, which is known at plan time.
+  count  = var.create_custom_policy ? 1 : 0
   name   = "${var.role_name}-CustomPolicy"
   policy = var.custom_policy_json
 }
 
 resource "aws_iam_role_policy_attachment" "custom" {
-  count      = var.custom_policy_json != null ? 1 : 0
+  # This also depends on the simple boolean.
+  count      = var.create_custom_policy ? 1 : 0
   role       = aws_iam_role.this.name
   policy_arn = aws_iam_policy.custom[0].arn
 }

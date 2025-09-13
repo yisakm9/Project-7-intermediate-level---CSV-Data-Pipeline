@@ -84,6 +84,7 @@ module "iam_lambda_role" {
   source                  = "../../modules/iam"
   role_name               = "CSV-Preprocessing-Lambda-Role-Dev"
   assume_role_policy_json = data.aws_iam_policy_document.lambda_assume_role.json
+  create_custom_policy    = true 
   custom_policy_json      = data.aws_iam_policy_document.lambda_policy.json
 }
 

@@ -8,8 +8,14 @@ variable "assume_role_policy_json" {
   type        = string
 }
 
+variable "create_custom_policy" {
+  description = "A boolean flag to control whether a custom IAM policy is created and attached."
+  type        = bool
+  default     = false
+}
+
 variable "custom_policy_json" {
-  description = "A custom IAM policy document in JSON format to be attached to the role."
+  description = "The custom IAM policy document in JSON format. Required if create_custom_policy is true."
   type        = string
   default     = null
 }
