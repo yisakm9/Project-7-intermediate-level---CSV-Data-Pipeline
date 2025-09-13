@@ -4,6 +4,7 @@ from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
+from awsglue.dynamicframe import DynamicFrame  # <--- THIS IS THE FIX
 from pyspark.sql.functions import col, sum as _sum
 
 # Get job arguments
