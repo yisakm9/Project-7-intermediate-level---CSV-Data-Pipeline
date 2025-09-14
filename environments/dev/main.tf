@@ -148,7 +148,7 @@ module "glue_etl" {
   job_iam_role_arn       = module.iam_glue_role.role_arn
   job_script_s3_path     = "${module.s3_processed_data.bucket_id}/${aws_s3_object.glue_script.key}"
 
-  # PASS THE BUCKET NAMES FOR THE JOB ARGUMENTS
+  # PASS THE BUCKET NAMES FOR THE  JOB ARGUMENTS
   job_default_args_input_path  = module.s3_processed_data.bucket_id
   job_default_args_output_path = module.s3_final_data.bucket_id
 }
