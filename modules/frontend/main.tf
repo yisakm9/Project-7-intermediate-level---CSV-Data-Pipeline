@@ -31,7 +31,7 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
   }
 
   origin {
-    domain_name = trimsuffix(var.api_gateway_invoke_url, "/")
+    domain_name = replace(trimsuffix(var.api_gateway_invoke_url, "/"), "https://", "")
     origin_id   = "API-Gateway-Origin"
     custom_origin_config {
       http_port              = 80
