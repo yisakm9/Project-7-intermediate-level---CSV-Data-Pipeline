@@ -62,9 +62,10 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
     target_origin_id       = "API-Gateway-Origin"
     viewer_protocol_policy = "https-only"
     compress               = true
-    default_ttl            = 0
-    min_ttl                = 0
-    max_ttl                = 0
+    # Do not cache API responses
+    default_ttl = 0
+    min_ttl     = 0
+    max_ttl     = 0
   }
 
   restrictions {
@@ -100,12 +101,7 @@ resource "aws_s3_bucket_policy" "bucket_policy" {
   policy = data.aws_iam_policy_document.s3_policy.json
 }
 
-# File Uploads
-resource "local_file" "config_js" {
-  content  = "const API_ENDPOINT = 'https://${aws_cloudfront_distribution.s3_distribution.domain_name}';"
-  filename = "${var.frontend_source_path}/config.js"
-}
-
+# Upload the index.html file
 resource "aws_s3_object" "index_html" {
   bucket       = aws_s3_bucket.frontend_bucket.id
   key          = "index.html"
@@ -114,11 +110,15 @@ resource "aws_s3_object" "index_html" {
   content_type = "text/html"
 }
 
+# Generate and upload the config.js file directly to S3
 resource "aws_s3_object" "config_js" {
   bucket       = aws_s3_bucket.frontend_bucket.id
   key          = "config.js"
-  source       = local_file.config_js.filename
-  etag         = filemd5(local_file.config_js.filename)
+  
+  # Generate content directly in memory instead of creating a local file
+  content      = "const API_ENDPOINT = 'https://${aws_cloudfront_distribution.s3_distribution.domain_name}';"
+  
+  # Use md5() on the content string, not filemd5() on a non-existent file path
+  etag         = md5("const API_ENDPOINT = 'https://${aws_cloudfront_distribution.s3_distribution.domain_name}';")
   content_type = "application/javascript"
-  depends_on   = [local_file.config_js]
 }
