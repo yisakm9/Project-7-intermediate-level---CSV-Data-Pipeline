@@ -19,29 +19,37 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    #  Prepare Lambda Package 
     - name: Setup Python
       uses: actions/setup-python@v5 
       with:
         python-version: '3.9'
 
-    - name: Install dependencies and create Lambda zip
+    - name: Create Lambda Deployment Packages
       run: |
+        echo "--- Packaging Preprocessing Lambda ---"
         pip install -r src/lambda_function/requirements.txt -t ./build/lambda_package
         cp src/lambda_function/main.py ./build/lambda_package/
         cd ./build/lambda_package
         zip -r ../lambda_function.zip .
+        cd ../.. # Return to the project root
+
+        echo "--- Packaging API Lambda ---"
+        mkdir -p ./build/api_lambda_package # Create the directory
+        cp src/api_lambda/main.py ./build/api_lambda_package/
+        cd ./build/api_lambda_package
+        zip -r ../api_lambda.zip .
       working-directory: ${{ github.workspace }}
 
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        role-to-assume: arn:aws:iam::456202167790:role/githubaction #  Account ID
+        role-to-assume: arn:aws:iam::456202167790:role/githubaction
         aws-region: us-east-1 
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3 
       with:
+       
         terraform_version: 1.13.1
 
     - name: Terraform Init

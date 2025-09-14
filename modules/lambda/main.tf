@@ -19,6 +19,7 @@ resource "aws_lambda_function" "this" {
 
 # Grant S3 permission to invoke the Lambda function
 resource "aws_lambda_permission" "allow_s3" {
+  count         = var.create_s3_trigger ? 1 : 0 # Control with the flag
   statement_id  = "AllowS3Invoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.this.function_name
@@ -28,6 +29,7 @@ resource "aws_lambda_permission" "allow_s3" {
 
 # Create the S3 bucket notification that triggers the function
 resource "aws_s3_bucket_notification" "bucket_notification" {
+  count  = var.create_s3_trigger ? 1 : 0 # Control with the flag
   bucket = var.trigger_bucket_id
 
   lambda_function {
@@ -37,4 +39,16 @@ resource "aws_s3_bucket_notification" "bucket_notification" {
   }
 
   depends_on = [aws_lambda_permission.allow_s3]
+}
+
+# ... (existing resources)
+
+# Grant API Gateway permission to invoke the Lambda function
+resource "aws_lambda_permission" "api_gateway_permission" {
+  count         = var.create_api_gateway_permission ? 1 : 0
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.this.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${var.api_gateway_execution_arn}/*/*"
 }

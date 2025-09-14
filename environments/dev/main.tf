@@ -116,6 +116,7 @@ module "lambda_preprocessing" {
   function_name    = "CSV-Preprocessing-Function-Dev"
   source_code_zip_path = "../../build/lambda_function.zip" 
   iam_role_arn     = module.iam_lambda_role.role_arn
+  create_s3_trigger    = true
   trigger_bucket_id = module.s3_raw_data.bucket_id
   
   environment_variables = {
@@ -176,4 +177,90 @@ data "aws_iam_policy_document" "glue_s3_policy" {
       "arn:aws:s3:::${module.s3_final_data.bucket_id}/*" # Write final output
     ]
   }
+}
+
+# ... (Existing S3, IAM, and Glue modules remain the same)
+
+################################################################################
+# API Layer (Lambda, API Gateway)
+################################################################################
+
+# --- IAM Role for the API Lambda ---
+data "aws_iam_policy_document" "api_lambda_assume_role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "api_lambda_policy" {
+  statement {
+    actions   = ["athena:StartQueryExecution", "athena:GetQueryExecution", "athena:GetQueryResults"]
+    resources = ["*"]
+  }
+  statement {
+    actions   = ["s3:GetObject", "s3:ListBucket"]
+    resources = ["arn:aws:s3:::${module.s3_final_data.bucket_id}", "arn:aws:s3:::${module.s3_final_data.bucket_id}/*"]
+  }
+  statement {
+    actions   = ["s3:PutObject"]
+    resources = ["arn:aws:s3:::${module.frontend.frontend_bucket_id}/athena-results/*"]
+  }
+  statement {
+    actions   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["arn:aws:logs:*:*:*"]
+  }
+  statement {
+    actions   = ["glue:GetTable"]
+    resources = ["*"]
+  }
+}
+
+module "iam_api_lambda_role" {
+  source                  = "../../modules/iam"
+  role_name               = "CSV-API-Lambda-Role-Dev"
+  assume_role_policy_json = data.aws_iam_policy_document.api_lambda_assume_role.json
+  create_custom_policy    = true
+  custom_policy_json      = data.aws_iam_policy_document.api_lambda_policy.json
+}
+
+# --- API Lambda Function ---
+module "api_lambda" {
+  source                      = "../../modules/lambda"
+  function_name               = "CSV-API-Function-Dev"
+  source_code_zip_path        = "../../build/api_lambda.zip" # This will be created by CI/CD
+  iam_role_arn                = module.iam_api_lambda_role.role_arn
+  
+  environment_variables = {
+    ATHENA_DATABASE       = module.glue_etl.database_name
+    ATHENA_TABLE          = module.glue_etl.table_name
+    ATHENA_OUTPUT_S3_PATH = "s3://${module.frontend.frontend_bucket_id}/athena-results/"
+  }
+
+  create_api_gateway_permission = true
+  api_gateway_execution_arn     = module.api_gateway.execution_arn
+
+  create_s3_trigger             = false
+  trigger_bucket_id             = ""
+
+}
+
+# --- API Gateway ---
+module "api_gateway" {
+  source          = "../../modules/apigateway"
+  api_name        = "CSV-Data-API"
+  lambda_invoke_arn = module.api_lambda.function_arn
+}
+
+################################################################################
+# Frontend Layer (S3, CloudFront)
+################################################################################
+module "frontend" {
+  source                 = "../../modules/frontend"
+  bucket_name            = "csv-pipeline-ui-${random_pet.suffix.id}"
+  api_gateway_invoke_url = module.api_gateway.invoke_url
+  frontend_source_path   = "../../src/frontend"
 }

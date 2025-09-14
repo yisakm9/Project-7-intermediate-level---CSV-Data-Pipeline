@@ -28,3 +28,8 @@ output "lambda_function_name" {
   description = "The name of the preprocessing Lambda function."
   value       = module.lambda_preprocessing.function_name
 }
+
+output "website_url" {
+  description = "The URL for the deployed frontend application."
+  value       = "https://${module.frontend.cloudfront_domain_name}"
+}
