@@ -205,57 +205,50 @@ data "aws_iam_policy_document" "api_lambda_assume_role" {
 data "aws_iam_policy_document" "api_lambda_policy" {
   # Permissions for CloudWatch Logging
   statement {
-    actions = [
-      "logs:CreateLogGroup",
-      "logs:CreateLogStream",
-      "logs:PutLogEvents"
-    ]
+    actions   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
     resources = ["arn:aws:logs:*:*:*"]
   }
 
-  # Permissions for Athena itself
+  # Permissions for Athena itself and Glue Data Catalog
   statement {
     actions = [
       "athena:StartQueryExecution",
       "athena:GetQueryExecution",
-      "athena:GetQueryResults"
-    ]
-    resources = ["*"] # Scope down in production
-  }
-
-  # Permissions for Glue Data Catalog
-  statement {
-    actions = [
+      "athena:GetQueryResults",
       "glue:GetDatabase",
       "glue:GetTable",
       "glue:GetPartitions"
     ]
     resources = ["*"] # Scope down in production
   }
-  
-  # --- THIS IS THE FIX ---
-  # Permissions for S3 Data and S3 Athena Results
+
+  # --- THIS IS THE FINAL FIX ---
+  # Comprehensive S3 permissions for reading data and writing results
   statement {
     actions = [
       "s3:GetObject",
       "s3:ListBucket"
     ]
     resources = [
-      # Read the Parquet data from the final bucket
       "arn:aws:s3:::${module.s3_final_data.bucket_id}",
-      "arn:aws:s3:::${module.s3_final_data.bucket_id}/*",
-      
-      # It also needs to list the results bucket to verify it exists
-      "arn:aws:s3:::${module.frontend.frontend_bucket_id}" 
+      "arn:aws:s3:::${module.s3_final_data.bucket_id}/*"
     ]
   }
 
   statement {
     actions = [
-      # Write the query results to the frontend bucket
+      # Required for Athena to write query results
       "s3:PutObject"
     ]
     resources = ["arn:aws:s3:::${module.frontend.frontend_bucket_id}/athena-results/*"]
+  }
+
+  statement {
+    actions = [
+      # Required by Athena to verify the results bucket exists
+      "s3:GetBucketLocation"
+    ]
+    resources = ["arn:aws:s3:::${module.frontend.frontend_bucket_id}"]
   }
 }
 module "iam_api_lambda_role" {
