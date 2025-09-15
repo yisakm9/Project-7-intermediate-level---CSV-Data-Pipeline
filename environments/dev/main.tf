@@ -141,7 +141,7 @@ resource "aws_s3_object" "glue_script" {
 module "glue_etl" {
   source                 = "../../modules/glue"
   crawler_name           = "CSV-Data-Crawler-Dev"
-  crawler_s3_target_path = module.s3_processed_data.bucket_id
+  crawler_s3_target_path = module.s3_final_data.bucket_id
   crawler_iam_role_arn   = module.iam_glue_role.role_arn
   database_name          = "csv_data_pipeline_db_dev"
   
