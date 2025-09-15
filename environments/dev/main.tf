@@ -163,18 +163,24 @@ data "aws_iam_policy_document" "glue_s3_policy" {
       "s3:ListBucket"
     ]
     resources = [
+      # It needs to READ from the PROCESSED bucket...
       "arn:aws:s3:::${module.s3_processed_data.bucket_id}",
-      "arn:aws:s3:::${module.s3_processed_data.bucket_id}/*" # Read script and data
+      "arn:aws:s3:::${module.s3_processed_data.bucket_id}/*",
+      
+      # --- THIS IS THE FIX ---
+      # ...and it also needs to READ from the FINAL bucket for the CRAWLER.
+      "arn:aws:s3:::${module.s3_final_data.bucket_id}",
+      "arn:aws:s3:::${module.s3_final_data.bucket_id}/*"
     ]
   }
 
   statement {
     actions = [
       "s3:PutObject",
-      "s3:DeleteObject" # Often needed for overwriting data
+      "s3:DeleteObject"
     ]
     resources = [
-      "arn:aws:s3:::${module.s3_final_data.bucket_id}/*" # Write final output
+      "arn:aws:s3:::${module.s3_final_data.bucket_id}/*" # It needs to WRITE to the FINAL bucket for the JOB.
     ]
   }
 }
