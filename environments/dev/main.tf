@@ -238,7 +238,8 @@ data "aws_iam_policy_document" "api_lambda_policy" {
   statement {
     actions = [
       # Required for Athena to write query results
-      "s3:PutObject"
+      "s3:PutObject",
+      "s3:GetObject"
     ]
     resources = ["arn:aws:s3:::${module.frontend.frontend_bucket_id}/athena-results/*"]
   }
