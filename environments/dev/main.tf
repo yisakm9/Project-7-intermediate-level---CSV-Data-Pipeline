@@ -213,48 +213,51 @@ data "aws_iam_policy_document" "api_lambda_policy" {
     resources = ["arn:aws:logs:*:*:*"]
   }
 
-  # Permissions for Athena and its S3 result location
+  # Permissions for Athena itself
   statement {
     actions = [
       "athena:StartQueryExecution",
       "athena:GetQueryExecution",
       "athena:GetQueryResults"
     ]
-    # In production, you would scope this to a specific workgroup ARN
-    resources = ["*"] 
-  }
-  
-  statement {
-    actions = ["s3:PutObject"]
-    # Allow writing query results to the frontend bucket's /athena-results/ folder
-    resources = ["arn:aws:s3:::${module.frontend.frontend_bucket_id}/athena-results/*"]
+    resources = ["*"] # Scope down in production
   }
 
-  # Permissions for Glue Data Catalog AND the underlying S3 data
+  # Permissions for Glue Data Catalog
   statement {
     actions = [
-      # Glue permissions to find the table metadata
       "glue:GetDatabase",
       "glue:GetTable",
       "glue:GetPartitions"
     ]
-    # In production, scope these down to the specific catalog, database, and table ARNs
-    resources = ["*"] 
+    resources = ["*"] # Scope down in production
   }
-
+  
+  # --- THIS IS THE FIX ---
+  # Permissions for S3 Data and S3 Athena Results
   statement {
     actions = [
-      # S3 permissions to read the actual Parquet files
       "s3:GetObject",
       "s3:ListBucket"
     ]
     resources = [
+      # Read the Parquet data from the final bucket
       "arn:aws:s3:::${module.s3_final_data.bucket_id}",
-      "arn:aws:s3:::${module.s3_final_data.bucket_id}/*"
+      "arn:aws:s3:::${module.s3_final_data.bucket_id}/*",
+      
+      # It also needs to list the results bucket to verify it exists
+      "arn:aws:s3:::${module.frontend.frontend_bucket_id}" 
     ]
   }
-}
 
+  statement {
+    actions = [
+      # Write the query results to the frontend bucket
+      "s3:PutObject"
+    ]
+    resources = ["arn:aws:s3:::${module.frontend.frontend_bucket_id}/athena-results/*"]
+  }
+}
 module "iam_api_lambda_role" {
   source                  = "../../modules/iam"
   role_name               = "CSV-API-Lambda-Role-Dev"
