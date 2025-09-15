@@ -288,7 +288,7 @@ module "api_lambda" {
 module "api_gateway" {
   source          = "../../modules/apigateway"
   api_name        = "CSV-Data-API"
-  lambda_invoke_arn = module.api_lambda.function_arn
+  lambda_invoke_arn = module.api_lambda.invoke_arn 
 }
 
 ################################################################################
