@@ -1,6 +1,13 @@
 resource "aws_apigatewayv2_api" "http_api" {
   name          = var.api_name
   protocol_type = "HTTP"
+
+  # Add this block to enable CORS
+  cors_configuration {
+    allow_origins = ["*"] # Allows any origin (e.g., your CloudFront domain)
+    allow_methods = ["GET", "OPTIONS"]
+    allow_headers = ["Content-Type", "Authorization"]
+  }
 }
 
 resource "aws_apigatewayv2_integration" "lambda_integration" {
