@@ -31,10 +31,10 @@ jobs:
         cp src/lambda_function/main.py ./build/lambda_package/
         cd ./build/lambda_package
         zip -r ../lambda_function.zip .
-        cd ../.. # Return to the project root
+        cd ../..
 
         echo "--- Packaging API Lambda ---"
-        mkdir -p ./build/api_lambda_package # Create the directory
+        mkdir -p ./build/api_lambda_package
         cp src/api_lambda/main.py ./build/api_lambda_package/
         cd ./build/api_lambda_package
         zip -r ../api_lambda.zip .
@@ -49,7 +49,6 @@ jobs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3 
       with:
-       
         terraform_version: 1.13.1
 
     - name: Terraform Init
@@ -67,3 +66,18 @@ jobs:
     - name: Terraform Apply
       run: terraform apply -auto-approve -input=false
       working-directory: ./environments/dev
+
+    # --- NEW STEPS FOR CLOUDFRONT INVALIDATION ---
+    - name: Get CloudFront Distribution ID from Terraform Output
+      id: get_cloudfront_id
+      run: |
+        CF_ID=$(terraform output -raw cloudfront_distribution_id)
+        echo "cloudfront_id=$CF_ID" >> $GITHUB_OUTPUT
+      working-directory: ./environments/dev
+
+    - name: Create CloudFront Invalidation
+      run: |
+        echo "Invalidating CloudFront cache for distribution ID: ${{ steps.get_cloudfront_id.outputs.cloudfront_id }}"
+        aws cloudfront create-invalidation \
+          --distribution-id ${{ steps.get_cloudfront_id.outputs.cloudfront_id }} \
+          --paths "/*"

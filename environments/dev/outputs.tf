@@ -33,3 +33,8 @@ output "website_url" {
   description = "The URL for the deployed frontend application."
   value       = "https://${module.frontend.cloudfront_domain_name}"
 }
+
+output "cloudfront_distribution_id" {
+  description = "The ID of the CloudFront distribution for the frontend."
+  value       = module.frontend.cloudfront_distribution_id
+}
