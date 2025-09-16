@@ -224,17 +224,12 @@ resource "aws_api_gateway_rest_api_policy" "this" {
     Version = "2012-10-17",
     Statement = [
       {
+        # --- THIS IS THE DEBUGGING FIX ---
+        # Temporarily allow access from ANY principal
         Effect    = "Allow",
-        Principal = {
-          Service = "cloudfront.amazonaws.com"
-        },
+        Principal = "*",
         Action    = "execute-api:Invoke",
-        Resource  = "${module.api_gateway.execution_arn}/v1/GET/get-sales-data",
-        Condition = {
-          StringEquals = {
-            "AWS:SourceArn" = module.frontend.cloudfront_distribution_arn
-          }
-        }
+        Resource  = "${module.api_gateway.execution_arn}/*/*/*" # Use a broad resource path
       }
     ]
   })
