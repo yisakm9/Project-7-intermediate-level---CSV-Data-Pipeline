@@ -220,16 +220,27 @@ module "api_gateway" {
 # --- API Gateway Policy (Connects Frontend and API Gateway) ---
 resource "aws_api_gateway_rest_api_policy" "this" {
   rest_api_id = module.api_gateway.rest_api_id
+
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
       {
-        # --- THIS IS THE DEBUGGING FIX ---
-        # Temporarily allow access from ANY principal
         Effect    = "Allow",
-        Principal = "*",
+        Principal = {
+          Service = "cloudfront.amazonaws.com"
+        },
         Action    = "execute-api:Invoke",
-        Resource  = "${module.api_gateway.execution_arn}/*/*/*" # Use a broad resource path
+        
+        # --- THIS IS THE FINAL FIX ---
+        # The Resource ARN for a REST API policy must be specific
+        # and include the stage, method, and resource path.
+        Resource  = "${module.api_gateway.execution_arn}/v1/GET/get-sales-data",
+
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = module.frontend.cloudfront_distribution_arn
+          }
+        }
       }
     ]
   })
