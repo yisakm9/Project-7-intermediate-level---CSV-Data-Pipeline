@@ -5,8 +5,9 @@ from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
 from awsglue.dynamicframe import DynamicFrame
-from pyspark.sql.functions import col, sum as _sum
-from pyspark.sql.types import StringType # Import StringType for casting
+# Import the functions we need for data cleaning
+from pyspark.sql.functions import col, sum as _sum, regexp_extract
+from pyspark.sql.types import StringType
 
 # Get job arguments
 args = getResolvedOptions(sys.argv, ['JOB_NAME', 'input_path', 'output_path'])
@@ -26,20 +27,24 @@ input_dynamic_frame = glueContext.create_dynamic_frame.from_options(
     format_options={"withHeader": True}
 )
 
-# Convert to Spark DataFrame for easier manipulation
 df = input_dynamic_frame.toDF()
 
-# --- Transformation Logic ---
-# Ensure numeric columns are cast correctly for calculation
-df = df.withColumn("Units Sold", col("Units Sold").cast("integer"))
-df = df.withColumn("Unit Price", col("Unit Price").cast("float"))
+# --- THIS IS THE FINAL FIX ---
+# Robust Data Cleaning and Transformation Logic
 
-# Calculate total revenue for each record
-df = df.withColumn("Total Revenue", col("Units Sold") * col("Unit Price"))
+# 1. Clean the 'Units Sold' column by extracting leading numbers
+# The regex '(\d+)' captures one or more digits at the start of the string.
+df = df.withColumn("Cleaned Units Sold", regexp_extract(col("Units Sold"), r"(\d+)", 1))
 
-# Group by 'Item Type' and calculate the sum of 'Total Revenue'
-# --- THIS IS THE FIX ---
-# Cast the final aggregated column to a StringType to prevent it from being null
+# 2. Cast columns to the correct numeric types for calculation
+df = df.withColumn("Units Sold Int", col("Cleaned Units Sold").cast("integer"))
+df = df.withColumn("Unit Price Float", col("Unit Price").cast("float"))
+
+# 3. Calculate total revenue for each record
+df = df.withColumn("Total Revenue", col("Units Sold Int") * col("Unit Price Float"))
+
+# 4. Group by 'Item Type' and calculate the sum of 'Total Revenue'
+#    Then, cast the final result to a StringType so it's never null in the JSON.
 aggregated_df = df.groupBy("Item Type") \
                   .agg(_sum("Total Revenue").alias("AggregatedRevenue")) \
                   .withColumn("AggregatedRevenue", col("AggregatedRevenue").cast(StringType()))
