@@ -39,6 +39,8 @@ jobs:
       with:
         python-version: '3.9'
 
+    # --- THIS IS THE FIX ---
+    # This step now creates all THREE required zip files.
     - name: Create Lambda Deployment Packages for Plan
       run: |
         echo "--- Packaging Preprocessing Lambda ---"
@@ -53,13 +55,13 @@ jobs:
         cp src/api_lambda/main.py ./build/api_lambda_package/
         cd ./build/api_lambda_package
         zip -r ../api_lambda.zip .
-      working-directory: ${{ github.workspace }}
-      
-    # --- THIS IS THE CRITICAL DEBUGGING STEP ---
-    - name: Verify File Structure
-      run: |
-        echo "Listing all files and directories from the root..."
-        ls -R
+        cd ../..
+        
+        echo "--- Packaging Upload Lambda ---"
+        mkdir -p ./build/upload_lambda_package
+        cp src/upload_lambda/main.py ./build/upload_lambda_package/
+        cd ./build/upload_lambda_package
+        zip -r ../upload_lambda.zip .
       working-directory: ${{ github.workspace }}
 
     - name: Configure AWS Credentials
@@ -71,7 +73,7 @@ jobs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: 1.13.1
+        terraform_version: 1.13.1 # Using a valid, recent version
 
     - name: Terraform Init
       run: terraform init
