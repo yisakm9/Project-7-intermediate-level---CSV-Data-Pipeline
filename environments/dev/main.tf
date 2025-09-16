@@ -210,7 +210,7 @@ module "api_lambda" {
   create_s3_trigger             = false
 }
 
-# --- API Gateway ---
+#  API Gateway
 module "api_gateway" {
   source            = "../../modules/apigateway"
   api_name          = "CSV-Data-API-${random_pet.suffix.id}"
