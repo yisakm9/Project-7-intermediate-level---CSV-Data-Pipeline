@@ -218,7 +218,7 @@ module "api_gateway" {
 }
 
 
-# --- API Gateway Policy (Connects Frontend and API Gateway) ---
+# --- API Gateway Policy  (Connects Frontend and API Gateway) ---
 resource "aws_api_gateway_rest_api_policy" "this" {
   rest_api_id = module.api_gateway.rest_api_id
   policy = jsonencode({
