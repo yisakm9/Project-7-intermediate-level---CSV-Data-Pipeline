@@ -1,5 +1,5 @@
 variable "api_name" {
-  description = "The name for the HTTP API."
+  description = "The name for the REST API."
   type        = string
 }
 
