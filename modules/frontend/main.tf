@@ -31,9 +31,9 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
   }
 
   origin {
-    # --- THIS IS THE FINAL FIX ---
-    # Sanitize the invoke_url from the REST API to remove the protocol and trailing slash
-    domain_name = replace(trimsuffix(var.api_gateway_invoke_url, "/"), "https://", "")
+    
+     # Use the urlparse function to reliably extract only the hostname
+    domain_name = urlparse(var.api_gateway_invoke_url).hostname
     
     origin_id   = "API-Gateway-Origin"
     custom_origin_config {
