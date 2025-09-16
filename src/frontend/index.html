@@ -41,15 +41,15 @@
             const resultsBody = document.getElementById('results-body');
             const loader = document.getElementById('loader');
 
-            // --- FIX: Construct the URL safely, ensuring there is a slash ---
+            // --- THE FIX ---
+            // API_ENDPOINT from config.js is now the full URL including the stage.
+            // We just need to append the resource name.
             const apiUrl = `${API_ENDPOINT}/get-sales-data`;
             
-            // Add a log for easy browser debugging (F12 -> Console)
             console.log("Fetching data from:", apiUrl); 
 
             fetch(apiUrl)
                 .then(response => {
-                    // --- FIX: Add better error handling for non-successful responses ---
                     if (!response.ok) {
                         console.error("API response was not ok.", response.status, response.statusText);
                         throw new Error(`HTTP error! status: ${response.status}`);
@@ -64,7 +64,6 @@
                             let cell1 = row.insertCell(0);
                             let cell2 = row.insertCell(1);
                             cell1.innerHTML = item.item_type;
-                            // --- FIX: Use correct 'aggregatedrevenue' (lowercase) and format as currency ---
                             cell2.innerHTML = parseFloat(item.aggregatedrevenue).toFixed(2);
                         });
                     } else {

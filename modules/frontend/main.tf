@@ -31,12 +31,7 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
   }
 
   origin {
-    # --- THIS IS THE GUARANTEED NATIVE TERRAFORM FIX ---
-    # 1. Remove the "https://" prefix.
-    # 2. Split the remaining string by "/" to separate the domain from the path.
-    # 3. Take the first element (index 0) of the resulting list.
     domain_name = split("/", replace(var.api_gateway_invoke_url, "https://", ""))[0]
-    
     origin_id   = "API-Gateway-Origin"
     custom_origin_config {
       http_port              = 80
@@ -60,16 +55,16 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
     }
   }
 
+  # THIS BEHAVIOR FORWARDS REQUESTS TO THE API GATEWAY
   ordered_cache_behavior {
-    path_pattern           = "/get-sales-data"
+    # This path pattern must now include the stage name
+    path_pattern           = "/v1/*"
     allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-    cached_methods         = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD", "OPTIONS"]
     target_origin_id       = "API-Gateway-Origin"
     viewer_protocol_policy = "https-only"
     compress               = true
-    default_ttl            = 0
-    min_ttl                = 0
-    max_ttl                = 0
+    # Forward all headers and query strings to the API
     forwarded_values {
       query_string = true
       headers      = ["*"]
@@ -112,7 +107,7 @@ resource "aws_s3_bucket_policy" "bucket_policy" {
   policy = data.aws_iam_policy_document.s3_policy.json
 }
 
-# Corrected File Uploads
+# File Uploads
 resource "aws_s3_object" "index_html" {
   bucket       = aws_s3_bucket.frontend_bucket.id
   key          = "index.html"
@@ -124,7 +119,9 @@ resource "aws_s3_object" "index_html" {
 resource "aws_s3_object" "config_js" {
   bucket       = aws_s3_bucket.frontend_bucket.id
   key          = "config.js"
-  content      = "const API_ENDPOINT = 'https://${aws_cloudfront_distribution.s3_distribution.domain_name}';"
-  etag         = md5("const API_ENDPOINT = 'https://${aws_cloudfront_distribution.s3_distribution.domain_name}';")
+  # --- THE FIX ---
+  # Pass the full and correct API Gateway invoke URL to the frontend
+  content      = "const API_ENDPOINT = '${var.api_gateway_invoke_url}';"
+  etag         = md5("const API_ENDPOINT = '${var.api_gateway_invoke_url}';")
   content_type = "application/javascript"
 }
