@@ -218,9 +218,9 @@ module "api_gateway" {
 }
 
 # --- API Gateway Policy (Connects Frontend and API Gateway) ---
+# --- API Gateway Policy (Connects Frontend and API Gateway) ---
 resource "aws_api_gateway_rest_api_policy" "this" {
   rest_api_id = module.api_gateway.rest_api_id
-
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
@@ -231,10 +231,8 @@ resource "aws_api_gateway_rest_api_policy" "this" {
         },
         Action    = "execute-api:Invoke",
         
-        # --- THIS IS THE FINAL FIX ---
-        # The Resource ARN for a REST API policy must be specific
-        # and include the stage, method, and resource path.
-        Resource  = "${module.api_gateway.execution_arn}/v1/GET/get-sales-data",
+        # --- Use a more robust wildcard ---
+        Resource  = "${module.api_gateway.execution_arn}/*",
 
         Condition = {
           StringEquals = {
