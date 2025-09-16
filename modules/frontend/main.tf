@@ -31,9 +31,11 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
   }
 
   origin {
-    
-     # Use the urlparse function to reliably extract only the hostname
-    domain_name = urlparse(var.api_gateway_invoke_url).hostname
+    # --- THIS IS THE GUARANTEED NATIVE TERRAFORM FIX ---
+    # 1. Remove the "https://" prefix.
+    # 2. Split the remaining string by "/" to separate the domain from the path.
+    # 3. Take the first element (index 0) of the resulting list.
+    domain_name = split("/", replace(var.api_gateway_invoke_url, "https://", ""))[0]
     
     origin_id   = "API-Gateway-Origin"
     custom_origin_config {
