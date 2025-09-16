@@ -18,7 +18,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: dev
     
-    # Define the confirmation phrase as an environment variable
     env:
       CONFIRMATION_PHRASE: 'destroy-the-dev-environment'
 
@@ -26,7 +25,6 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    # Your new safety-check step
     - name: 'Verify Destroy Confirmation'
       run: |
         if [ "${{ github.event.inputs.confirmation }}" != "${{ env.CONFIRMATION_PHRASE }}" ]; then
@@ -35,6 +33,34 @@ jobs:
         else
           echo "✅ Confirmation phrase matches. Proceeding with destroy operation."
         fi
+        
+    - name: Setup Python
+      uses: actions/setup-python@v5 
+      with:
+        python-version: '3.9'
+
+    - name: Create Lambda Deployment Packages for Plan
+      run: |
+        echo "--- Packaging Preprocessing Lambda ---"
+        pip install -r src/lambda_function/requirements.txt -t ./build/lambda_package
+        cp src/lambda_function/main.py ./build/lambda_package/
+        cd ./build/lambda_package
+        zip -r ../lambda_function.zip .
+        cd ../..
+
+        echo "--- Packaging API Lambda ---"
+        mkdir -p ./build/api_lambda_package
+        cp src/api_lambda/main.py ./build/api_lambda_package/
+        cd ./build/api_lambda_package
+        zip -r ../api_lambda.zip .
+      working-directory: ${{ github.workspace }}
+      
+    # --- THIS IS THE CRITICAL DEBUGGING STEP ---
+    - name: Verify File Structure
+      run: |
+        echo "Listing all files and directories from the root..."
+        ls -R
+      working-directory: ${{ github.workspace }}
 
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
