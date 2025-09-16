@@ -1,47 +1,30 @@
-name: 'Destroy Dev Environment'
+name: 'Deploy to Dev Environment'
 
 on:
-  workflow_dispatch:
-    inputs:
-      confirmation:
-        description: 'Type "destroy-the-dev-environment" to confirm.'
-        required: true
-        type: string
+  push:
+    branches:
+      - main
 
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  terraform-destroy:
-    name: 'Terraform Destroy Dev'
+  terraform-deploy:
+    name: 'Terraform Deploy to Dev'
     runs-on: ubuntu-latest
     environment: dev
-    
-    env:
-      CONFIRMATION_PHRASE: 'destroy-the-dev-environment'
 
     steps:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: 'Verify Destroy Confirmation'
-      run: |
-        if [ "${{ github.event.inputs.confirmation }}" != "${{ env.CONFIRMATION_PHRASE }}" ]; then
-          echo "❌ ERROR: Confirmation phrase did not match. Aborting workflow."
-          exit 1
-        else
-          echo "✅ Confirmation phrase matches. Proceeding with destroy operation."
-        fi
-        
-    # --- THIS IS THE FIX ---
-    # Add the exact same packaging steps from the deploy workflow
     - name: Setup Python
       uses: actions/setup-python@v5 
       with:
         python-version: '3.9'
 
-    - name: Create Lambda Deployment Packages for Plan
+    - name: Create Lambda Deployment Packages
       run: |
         echo "--- Packaging Preprocessing Lambda ---"
         pip install -r src/lambda_function/requirements.txt -t ./build/lambda_package
@@ -56,7 +39,7 @@ jobs:
         cd ./build/api_lambda_package
         zip -r ../api_lambda.zip .
       working-directory: ${{ github.workspace }}
-      
+
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
@@ -64,7 +47,7 @@ jobs:
         aws-region: us-east-1 
 
     - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
+      uses: hashicorp/setup-terraform@v3 
       with:
         terraform_version: 1.13.1
 
@@ -72,6 +55,29 @@ jobs:
       run: terraform init
       working-directory: ./environments/dev
 
-    - name: Terraform Destroy
-      run: terraform destroy -auto-approve
+    - name: Terraform Validate
+      run: terraform validate
       working-directory: ./environments/dev
+
+    - name: Terraform Plan
+      run: terraform plan -input=false
+      working-directory: ./environments/dev
+
+    - name: Terraform Apply
+      run: terraform apply -auto-approve -input=false
+      working-directory: ./environments/dev
+
+    # --- NEW STEPS FOR CLOUDFRONT INVALIDATION ---
+    - name: Get CloudFront Distribution ID from Terraform Output
+      id: get_cloudfront_id
+      run: |
+        CF_ID=$(terraform output -raw cloudfront_distribution_id)
+        echo "cloudfront_id=$CF_ID" >> $GITHUB_OUTPUT
+      working-directory: ./environments/dev
+
+    - name: Create CloudFront Invalidation
+      run: |
+        echo "Invalidating CloudFront cache for distribution ID: ${{ steps.get_cloudfront_id.outputs.cloudfront_id }}"
+        aws cloudfront create-invalidation \
+          --distribution-id ${{ steps.get_cloudfront_id.outputs.cloudfront_id }} \
+          --paths "/*"
