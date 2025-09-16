@@ -213,7 +213,7 @@ module "api_lambda" {
 # --- API Gateway ---
 module "api_gateway" {
   source            = "../../modules/apigateway"
-  api_name          = "CSV-Data-API"
+  api_name          = "CSV-Data-API-${random_pet.suffix.id}"
   lambda_invoke_arn = module.api_lambda.invoke_arn
 }
 
