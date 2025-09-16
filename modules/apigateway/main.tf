@@ -1,3 +1,9 @@
+# --- THIS RESOURCE WAS MISSING ---
+# Create the REST API
+resource "aws_api_gateway_rest_api" "this" {
+  name        = var.api_name
+  description = "REST API for the CSV Data Pipeline"
+}
 
 # Create a resource within the API (e.g., /get-sales-data)
 resource "aws_api_gateway_resource" "this" {
@@ -23,8 +29,6 @@ resource "aws_api_gateway_integration" "lambda" {
   type                    = "AWS_PROXY"
   uri                     = var.lambda_invoke_arn
 }
-
-# --- CORRECTED DEPLOYMENT AND STAGE ---
 
 # Create a deployment resource. The lifecycle block is key.
 resource "aws_api_gateway_deployment" "this" {
