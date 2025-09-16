@@ -11,7 +11,6 @@ module "s3_raw_data" {
   source      = "../../modules/s3"
   bucket_name = "csv-raw-data-${random_pet.suffix.id}"
   tags        = { "Zone" = "Raw" }
-  allowed_cors_origins = ["https://${module.frontend.cloudfront_domain_name}"]
 }
 
 module "s3_processed_data" {
@@ -274,4 +273,16 @@ module "upload_lambda" {
   }
   create_api_gateway_permission = true
   api_gateway_execution_arn     = module.api_gateway.execution_arn
+}
+
+# Create the S3 CORS Configuration separately to break the dependency cycle
+resource "aws_s3_bucket_cors_configuration" "raw_data_cors" {
+  bucket = module.s3_raw_data.bucket_id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["PUT", "POST", "GET"]
+    allowed_origins = ["https://${module.frontend.cloudfront_domain_name}"]
+    expose_headers  = ["ETag"]
+  }
 }

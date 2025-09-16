@@ -9,8 +9,3 @@ variable "tags" {
   default     = {}
 }
 
-variable "allowed_cors_origins" {
-  description = "A list of origins that are allowed to make CORS requests."
-  type        = list(string)
-  default     = []
-}
