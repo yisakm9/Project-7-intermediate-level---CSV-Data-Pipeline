@@ -150,7 +150,7 @@ module "glue_etl" {
 # 4. API Gateway Policy (connects API Gateway and Frontend)
 ################################################################################
 
-# --- Frontend Layer (S3, CloudFront) ---
+# --- Frontend Layer  (S3, CloudFront) ---
 module "frontend" {
   source                 = "../../modules/frontend"
   bucket_name            = "csv-pipeline-ui-${random_pet.suffix.id}"
