@@ -226,14 +226,9 @@ resource "aws_api_gateway_rest_api_policy" "this" {
     Statement = [
       {
         Effect    = "Allow",
-        Principal = {
-          Service = "cloudfront.amazonaws.com"
-        },
+        Principal = { Service = "cloudfront.amazonaws.com" },
         Action    = "execute-api:Invoke",
-        
-        # --- Use a more robust wildcard ---
-        Resource  = "${module.api_gateway.execution_arn}/*",
-
+        Resource  = "${module.api_gateway.execution_arn}/*/*",
         Condition = {
           StringEquals = {
             "AWS:SourceArn" = module.frontend.cloudfront_distribution_arn
