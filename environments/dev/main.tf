@@ -229,7 +229,7 @@ resource "aws_api_gateway_rest_api_policy" "this" {
           Service = "cloudfront.amazonaws.com"
         },
         Action    = "execute-api:Invoke",
-        Resource  = "${module.api_gateway.execution_arn}/*/*",
+        Resource  = "${module.api_gateway.execution_arn}/v1/GET/get-sales-data",
         Condition = {
           StringEquals = {
             "AWS:SourceArn" = module.frontend.cloudfront_distribution_arn
