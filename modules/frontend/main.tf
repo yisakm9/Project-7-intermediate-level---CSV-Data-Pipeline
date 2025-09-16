@@ -31,8 +31,10 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
   }
 
   origin {
-    # CORRECTED: Sanitized the URL to remove the protocol
+    # --- THIS IS THE FINAL FIX ---
+    # Sanitize the invoke_url from the REST API to remove the protocol and trailing slash
     domain_name = replace(trimsuffix(var.api_gateway_invoke_url, "/"), "https://", "")
+    
     origin_id   = "API-Gateway-Origin"
     custom_origin_config {
       http_port              = 80
@@ -66,12 +68,9 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
     default_ttl            = 0
     min_ttl                = 0
     max_ttl                = 0
-
-    # --- THIS IS THE FIX ---
-    # Added the mandatory forwarded_values block for the API
     forwarded_values {
-      query_string = true # APIs often use query strings
-      headers      = ["*"] # Forward all headers (e.g., Authorization) to the API
+      query_string = true
+      headers      = ["*"]
       cookies {
         forward = "none"
       }
