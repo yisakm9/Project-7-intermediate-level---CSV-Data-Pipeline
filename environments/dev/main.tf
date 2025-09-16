@@ -11,6 +11,7 @@ module "s3_raw_data" {
   source      = "../../modules/s3"
   bucket_name = "csv-raw-data-${random_pet.suffix.id}"
   tags        = { "Zone" = "Raw" }
+  allowed_cors_origins = ["https://${module.frontend.cloudfront_domain_name}"]
 }
 
 module "s3_processed_data" {
