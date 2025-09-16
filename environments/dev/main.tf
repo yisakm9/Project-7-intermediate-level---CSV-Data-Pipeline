@@ -241,7 +241,7 @@ resource "aws_api_gateway_rest_api_policy" "this" {
 }
 
 
-# --- IAM Role for the Upload Lambda ---
+# IAM Role for the Upload Lambda 
 data "aws_iam_policy_document" "upload_lambda_policy" {
   statement {
     actions   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
