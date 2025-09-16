@@ -215,6 +215,7 @@ module "api_gateway" {
   source            = "../../modules/apigateway"
   api_name          = "CSV-Data-API-${random_pet.suffix.id}"
   lambda_invoke_arn = module.api_lambda.invoke_arn
+  upload_lambda_invoke_arn = module.upload_lambda.invoke_arn
 }
 
 
@@ -237,4 +238,39 @@ resource "aws_api_gateway_rest_api_policy" "this" {
       }
     ]
   })
+}
+
+
+# --- IAM Role for the Upload Lambda ---
+data "aws_iam_policy_document" "upload_lambda_policy" {
+  statement {
+    actions   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["arn:aws:logs:*:*:*"]
+  }
+  statement {
+    # This role only needs permission to PUT objects into the raw bucket
+    actions   = ["s3:PutObject"]
+    resources = ["${module.s3_raw_data.bucket_arn}/*"]
+  }
+}
+
+module "iam_upload_lambda_role" {
+  source                  = "../../modules/iam"
+  role_name               = "CSV-Upload-Lambda-Role-Dev"
+  assume_role_policy_json = data.aws_iam_policy_document.lambda_assume_role.json
+  create_custom_policy    = true
+  custom_policy_json      = data.aws_iam_policy_document.upload_lambda_policy.json
+}
+
+# --- Upload Lambda Function ---
+module "upload_lambda" {
+  source               = "../../modules/lambda"
+  function_name        = "CSV-Upload-Function-Dev"
+  source_code_zip_path = "../../build/upload_lambda.zip" # Will be created by CI/CD
+  iam_role_arn         = module.iam_upload_lambda_role.role_arn
+  environment_variables = {
+    UPLOAD_BUCKET = module.s3_raw_data.bucket_id
+  }
+  create_api_gateway_permission = true
+  api_gateway_execution_arn     = module.api_gateway.execution_arn
 }

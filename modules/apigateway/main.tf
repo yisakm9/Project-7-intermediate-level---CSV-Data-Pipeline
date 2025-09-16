@@ -91,3 +91,29 @@ resource "aws_api_gateway_stage" "this" {
   rest_api_id   = aws_api_gateway_rest_api.this.id
   stage_name    = "v1"
 }
+
+# ... (existing resources for /get-sales-data)
+
+# --- New Resource for File Uploads ---
+resource "aws_api_gateway_resource" "upload" {
+  rest_api_id = aws_api_gateway_rest_api.this.id
+  parent_id   = aws_api_gateway_rest_api.this.root_resource_id
+  path_part   = "upload-csv"
+}
+
+# --- New Method and Integration for Upload Lambda ---
+resource "aws_api_gateway_method" "upload_get_method" {
+  rest_api_id   = aws_api_gateway_rest_api.this.id
+  resource_id   = aws_api_gateway_resource.upload.id
+  http_method   = "GET"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "upload_lambda_integration" {
+  rest_api_id             = aws_api_gateway_rest_api.this.id
+  resource_id             = aws_api_gateway_resource.upload.id
+  http_method             = aws_api_gateway_method.upload_get_method.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = var.upload_lambda_invoke_arn # We'll need to add this variable
+}
