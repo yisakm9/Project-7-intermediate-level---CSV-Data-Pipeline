@@ -38,7 +38,16 @@ jobs:
         cp src/api_lambda/main.py ./build/api_lambda_package/
         cd ./build/api_lambda_package
         zip -r ../api_lambda.zip .
-      working-directory: ${{ github.workspace }}
+        cd ../..
+
+        # --- THIS IS THE FIX ---
+        # Add the packaging step for the new Upload Lambda
+        echo "--- Packaging Upload Lambda ---"
+        mkdir -p ./build/upload_lambda_package
+        cp src/upload_lambda/main.py ./build/upload_lambda_package/
+        cd ./build/upload_lambda_package
+        zip -r ../upload_lambda.zip .
+        cd ../..
 
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
@@ -47,7 +56,7 @@ jobs:
         aws-region: us-east-1 
 
     - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3 
+      uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.13.1
 
@@ -67,7 +76,6 @@ jobs:
       run: terraform apply -auto-approve -input=false
       working-directory: ./environments/dev
 
-    # --- NEW STEPS FOR CLOUDFRONT INVALIDATION ---
     - name: Get CloudFront Distribution ID from Terraform Output
       id: get_cloudfront_id
       run: |
