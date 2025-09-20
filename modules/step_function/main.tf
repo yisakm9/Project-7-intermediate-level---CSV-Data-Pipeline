@@ -8,7 +8,9 @@ resource "aws_sfn_state_machine" "this" {
     States = {
       RunGlueCrawler = {
         Type        = "Task",
-        Resource    = "arn:aws:states:::glue:startCrawler",
+        # --- THIS IS THE FIX ---
+        # Use the .sync integration to wait for the crawler to complete
+        Resource    = "arn:aws:states:::glue:startCrawler.sync",
         Parameters = {
           Name = var.glue_crawler_name
         },
@@ -16,7 +18,8 @@ resource "aws_sfn_state_machine" "this" {
       },
       RunGlueJob = {
         Type        = "Task",
-        Resource    = "arn:aws:states:::glue:startJobRun.sync", # .sync waits for completion
+        # Use the .sync integration to wait for the job to complete
+        Resource    = "arn:aws:states:::glue:startJobRun.sync",
         Parameters = {
           JobName = var.glue_job_name
         },
