@@ -3,7 +3,6 @@ resource "aws_glue_catalog_database" "this" {
   name = var.database_name
 }
 
-# --- THIS IS THE FIX ---
 # Instead of a crawler, we explicitly define the final table's schema.
 resource "aws_glue_catalog_table" "final_data_table" {
   name          = var.final_data_table_name
@@ -22,13 +21,14 @@ resource "aws_glue_catalog_table" "final_data_table" {
       }
     }
 
-    # Define the exact schema our Glue job produces
+    # --- THIS IS THE FIX ---
+    # Define the exact, clean schema that our final Glue job produces.
     columns {
-      name    = "Item Type"
+      name    = "item_type"
       type    = "string"
     }
     columns {
-      name    = "AggregatedRevenue"
+      name    = "aggregated_revenue"
       type    = "string"
     }
   }
