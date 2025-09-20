@@ -134,19 +134,6 @@ resource "aws_s3_object" "glue_script" {
   etag   = filemd5("../../src/glue_etl_job/job.py")
 }
 
-module "glue_etl" {
-  source                       = "../../modules/glue"
-  crawler_name                 = "CSV-Data-Crawler-Dev"
-  crawler_s3_target_path       = module.s3_processed_data.bucket_id
-  crawler_iam_role_arn         = module.iam_glue_role.role_arn
-  database_name                = "csv_data_pipeline_db_dev"
-  job_name                     = "CSV-to-Parquet-ETL-Job-Dev"
-  job_iam_role_arn             = module.iam_glue_role.role_arn
-  job_script_s3_path           = "${module.s3_processed_data.bucket_id}/${aws_s3_object.glue_script.key}"
-  job_default_args_input_path  = module.s3_processed_data.bucket_id
-  job_default_args_output_path = module.s3_final_data.bucket_id
-}
-
 ################################################################################
 # API Layer & Frontend
 # NOTE: The order is important here to avoid dependency cycles.
@@ -201,16 +188,21 @@ module "iam_api_lambda_role" {
 }
 
 #  API Lambda Function 
+# --- API Lambda Function ---
 module "api_lambda" {
   source               = "../../modules/lambda"
   function_name        = "CSV-API-Function-Dev"
   source_code_zip_path = "../../build/api_lambda.zip"
   iam_role_arn         = module.iam_api_lambda_role.role_arn
+  
   environment_variables = {
     ATHENA_DATABASE       = module.glue_etl.database_name
-    ATHENA_TABLE          = module.glue_etl.table_name
+    # --- THIS IS THE FIX ---
+    # Reference the new, correct output from the glue module
+    ATHENA_TABLE          = module.glue_etl.final_data_table_name 
     ATHENA_OUTPUT_S3_PATH = "s3://${module.frontend.frontend_bucket_id}/athena-results/"
   }
+
   create_api_gateway_permission = true
   api_gateway_execution_arn     = module.api_gateway.execution_arn
   create_s3_trigger             = false
@@ -323,14 +315,23 @@ module "iam_sfn_role" {
   create_custom_policy    = true
   custom_policy_json      = data.aws_iam_policy_document.sfn_policy.json
 }
+
+module "glue_etl" {
+  source                = "../../modules/glue"
+  database_name         = "csv_data_pipeline_db_dev"
+  job_name              = "CSV-to-Parquet-ETL-Job-Dev"
+  job_iam_role_arn      = module.iam_glue_role.role_arn
+  job_script_s3_path    = "${module.s3_processed_data.bucket_id}/${aws_s3_object.glue_script.key}"
+  final_data_table_name = "sales_data_aggregated" # A clean, predictable name
+  final_data_s3_path    = module.s3_final_data.bucket_id
+}
+
 # --- Step Function Orchestrator ---
 module "step_function" {
-  source                 = "../../modules/step_function"
-  state_machine_name     = "CSV-Pipeline-Orchestrator-Dev"
-  state_machine_role_arn = module.iam_sfn_role.role_arn
-  glue_job_name          = module.glue_etl.job_name
-  
-  # Pass the S3 bucket names directly
-  processed_bucket_name  = module.s3_processed_data.bucket_id
-  final_bucket_name      = module.s3_final_data.bucket_id
+  source                  = "../../modules/step_function"
+  state_machine_name      = "CSV-Pipeline-Orchestrator-Dev"
+  state_machine_role_arn  = module.iam_sfn_role.role_arn
+  glue_job_name           = module.glue_etl.job_name
+  processed_bucket_name   = module.s3_processed_data.bucket_id
+  final_bucket_name       = module.s3_final_data.bucket_id
 }

@@ -1,18 +1,3 @@
-variable "crawler_name" {
-  description = "Name of the Glue Crawler."
-  type        = string
-}
-
-variable "crawler_s3_target_path" {
-  description = "The S3 path for the crawler to scan."
-  type        = string
-}
-
-variable "crawler_iam_role_arn" {
-  description = "ARN of the IAM role for the Glue Crawler."
-  type        = string
-}
-
 variable "database_name" {
   description = "Name of the Glue Data Catalog database."
   type        = string
@@ -33,12 +18,12 @@ variable "job_script_s3_path" {
   type        = string
 }
 
-variable "job_default_args_input_path" {
-  description = "The default S3 path for the job's input data."
+variable "final_data_table_name" {
+  description = "The name for the final data table in the Glue Catalog."
   type        = string
 }
 
-variable "job_default_args_output_path" {
-  description = "The default S3 path for the job's output data."
+variable "final_data_s3_path" {
+  description = "The S3 path where the final Parquet data is stored."
   type        = string
 }

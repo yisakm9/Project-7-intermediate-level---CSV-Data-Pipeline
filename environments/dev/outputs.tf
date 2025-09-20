@@ -38,3 +38,17 @@ output "cloudfront_distribution_id" {
   description = "The ID of the CloudFront distribution for the frontend."
   value       = module.frontend.cloudfront_distribution_id
 }
+
+# --- IAM Role Identifiers for Auditing ---
+output "preprocessing_lambda_role_arn" {
+  description = "ARN of the IAM role for the preprocessing Lambda."
+  value       = module.iam_lambda_role.role_arn
+}
+output "api_lambda_role_arn" {
+  description = "ARN of the IAM role for the API Lambda."
+  value       = module.iam_api_lambda_role.role_arn
+}
+output "step_function_role_arn" {
+  description = "ARN of the IAM role for the Step Function."
+  value       = module.iam_sfn_role.role_arn
+}

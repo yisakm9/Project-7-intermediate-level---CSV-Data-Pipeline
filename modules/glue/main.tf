@@ -3,14 +3,34 @@ resource "aws_glue_catalog_database" "this" {
   name = var.database_name
 }
 
-# Create the Glue Crawler
-resource "aws_glue_crawler" "this" {
-  name          = var.crawler_name
-  role          = var.crawler_iam_role_arn
+# --- THIS IS THE FIX ---
+# Instead of a crawler, we explicitly define the final table's schema.
+resource "aws_glue_catalog_table" "final_data_table" {
+  name          = var.final_data_table_name
   database_name = aws_glue_catalog_database.this.name
 
-  s3_target {
-    path = "s3://${var.crawler_s3_target_path}"
+  storage_descriptor {
+    location      = "s3://${var.final_data_s3_path}/"
+    input_format  = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat"
+    output_format = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat"
+
+    ser_de_info {
+      name                  = "ParquetHiveSerDe"
+      serialization_library = "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
+      parameters = {
+        "serialization.format" = "1"
+      }
+    }
+
+    # Define the exact schema our Glue job produces
+    columns {
+      name    = "Item Type"
+      type    = "string"
+    }
+    columns {
+      name    = "AggregatedRevenue"
+      type    = "string"
+    }
   }
 }
 
@@ -23,10 +43,4 @@ resource "aws_glue_job" "this" {
     python_version  = "3"
   }
   glue_version = "4.0"
-
-  # ADD THIS BLOCK
-  default_arguments = {
-    "--input_path"  = "s3://${var.job_default_args_input_path}/"
-    "--output_path" = "s3://${var.job_default_args_output_path}/"
-  }
 }
