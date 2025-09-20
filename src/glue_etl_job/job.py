@@ -6,9 +6,8 @@ from awsglue.context import GlueContext
 from awsglue.job import Job
 from awsglue.dynamicframe import DynamicFrame
 from pyspark.sql.functions import col, sum as _sum, regexp_extract
-from pyspark.sql.types import StringType
+from pyspark.sql.types import StringType, FloatType, IntegerType
 
-# Get arguments: the INPUT S3 path and the OUTPUT S3 path
 args = getResolvedOptions(sys.argv, [
     'JOB_NAME',
     'input_path',
@@ -21,7 +20,7 @@ spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(args['JOB_NAME'], args)
 
-# Read directly from the S3 input path, explicitly defining the format as CSV
+# Read the raw CSV directly from the S3 input path
 input_dynamic_frame = glueContext.create_dynamic_frame.from_options(
     connection_type="s3",
     connection_options={"paths": [args['input_path']]},
@@ -31,19 +30,23 @@ input_dynamic_frame = glueContext.create_dynamic_frame.from_options(
 
 df = input_dynamic_frame.toDF()
 
-# --- Transformation Logic ---
+# --- THIS IS THE FINAL FIX: All Cleaning and Transformation Logic is Here ---
+
 # 1. Clean the 'Units Sold' column by extracting leading numbers
 df = df.withColumn("Cleaned Units Sold", regexp_extract(col("`Units Sold`"), r"(\d+)", 1))
 
-# 2. Cast columns to the correct numeric types for calculation
-df = df.withColumn("Units Sold Int", col("Cleaned Units Sold").cast("integer"))
-df = df.withColumn("Unit Price Float", col("`Unit Price`").cast("float"))
+# 2. Cast all necessary columns to their correct numeric types
+df = df.withColumn("Units Sold Int", col("Cleaned Units Sold").cast(IntegerType()))
+df = df.withColumn("Unit Price Float", col("`Unit Price`").cast(FloatType()))
 
-# 3. Calculate total revenue for each record
+# 3. CRITICAL: Drop any rows where the casting failed (e.g., empty Unit Price)
+#    This is the step that removes the bad data that was causing the nulls.
+df = df.dropna(subset=["Units Sold Int", "Unit Price Float"])
+
+# 4. Calculate total revenue for each valid record
 df = df.withColumn("Total Revenue", col("Units Sold Int") * col("Unit Price Float"))
 
-# --- THIS IS THE FIX ---
-# 4. Group, aggregate, cast the result to a string, and RENAME the columns to be clean
+# 5. Group, aggregate, and RENAME the columns to create a clean, final schema
 aggregated_df = df.groupBy("`Item Type`") \
                   .agg(_sum("Total Revenue").alias("aggregated_revenue")) \
                   .withColumn("aggregated_revenue", col("aggregated_revenue").cast(StringType())) \
@@ -51,12 +54,14 @@ aggregated_df = df.groupBy("`Item Type`") \
 
 output_dynamic_frame = DynamicFrame.fromDF(aggregated_df, glueContext, "aggregated_df")
 
-# Write the final data to the specified output path
+# Write the final, aggregated data to the output path in Parquet format
 glueContext.write_dynamic_frame.from_options(
     frame=output_dynamic_frame,
     connection_type="s3",
     connection_options={"path": args['output_path']},
-    format="parquet"
+    format="parquet",
+    # Use overwrite to ensure idempotency if the job is re-run
+    format_options={"write.partition.overwrite.mode": "dynamic"}
 )
 
 job.commit()
