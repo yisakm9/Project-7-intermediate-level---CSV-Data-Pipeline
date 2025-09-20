@@ -5,14 +5,17 @@ from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
 from awsglue.dynamicframe import DynamicFrame
-# Import the functions and types we need for robust cleaning
 from pyspark.sql.functions import col, sum as _sum, regexp_extract
 from pyspark.sql.types import StringType, IntegerType, FloatType
 
-# Get job arguments passed from the Step Function
-args = getResolvedOptions(sys.argv, ['JOB_NAME', 'input_path', 'output_path'])
+# Get arguments passed from the Step Function
+args = getResolvedOptions(sys.argv, [
+    'JOB_NAME',
+    'input_path',
+    'output_path'
+])
 
-# Initialize contexts
+# Standard Glue job setup
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -29,35 +32,40 @@ input_dynamic_frame = glueContext.create_dynamic_frame.from_options(
 
 df = input_dynamic_frame.toDF()
 
-# --- PROFESSIONAL DATA CLEANING AND TRANSFORMATION LOGIC ---
+# --- THIS IS THE FINAL, GUARANTEED FIX ---
+# Step 1: Normalize all column names to be clean and predictable.
+# This is a professional data engineering best practice.
+for column in df.columns:
+    new_column_name = column.lower().replace(' ', '_')
+    df = df.withColumnRenamed(column, new_column_name)
 
-# 1. Clean the 'Units Sold' column by extracting leading numbers
-df = df.withColumn("Cleaned Units Sold", regexp_extract(col("`Units Sold`"), r"(\d+)", 1))
+print("--- Schema After Normalization ---")
+df.printSchema()
 
-# 2. Cast all necessary columns to their correct numeric types
-df = df.withColumn("Units Sold Int", col("Cleaned Units Sold").cast(IntegerType()))
-df = df.withColumn("Unit Price Float", col("`Unit Price`").cast(FloatType()))
+# Step 2: Perform all subsequent operations using the clean, predictable names.
+# No more backticks or guessing about spaces.
+df = df.withColumn("cleaned_units_sold", regexp_extract(col("units_sold"), r"(\d+)", 1))
+df = df.withColumn("units_sold_int", col("cleaned_units_sold").cast(IntegerType()))
+df = df.withColumn("unit_price_float", col("unit_price").cast(FloatType()))
 
-# 3. CRITICAL: Drop any rows where the casting failed (e.g., empty Unit Price)
-#    This removes the bad data that was causing the nulls.
-df = df.dropna(subset=["Units Sold Int", "Unit Price Float"])
+# Step 3: CRITICAL - Drop rows where casting failed (e.g., empty Unit Price)
+df = df.dropna(subset=["units_sold_int", "unit_price_float"])
 
-# 4. Calculate total revenue for each valid record
-df = df.withColumn("Total Revenue", col("Units Sold Int") * col("Unit Price Float"))
+# Step 4: Calculate total revenue for each valid record
+df = df.withColumn("total_revenue", col("units_sold_int") * col("unit_price_float"))
 
-# 5. Group, aggregate, and RENAME the columns to create a clean, final schema
-aggregated_df = df.groupBy("`Item Type`") \
-                  .agg(_sum("Total Revenue").alias("aggregated_revenue")) \
-                  .withColumn("aggregated_revenue", col("aggregated_revenue").cast(StringType())) \
-                  .withColumnRenamed("Item Type", "item_type")
+# Step 5: Group, aggregate, and ensure the final columns have clean names
+aggregated_df = df.groupBy("item_type") \
+                  .agg(_sum("total_revenue").alias("aggregated_revenue")) \
+                  .withColumn("aggregated_revenue", col("aggregated_revenue").cast(StringType()))
 
-print("Aggregation complete. Final schema:")
+print("--- Final Aggregated Schema ---")
 aggregated_df.printSchema()
 
-# Convert back to DynamicFrame before writing
+# Convert back to a DynamicFrame before writing
 output_dynamic_frame = DynamicFrame.fromDF(aggregated_df, glueContext, "aggregated_df")
 
-# Write the final data to the specified output path in Parquet format
+# Write the final, aggregated data to the output path in Parquet format
 glueContext.write_dynamic_frame.from_options(
     frame=output_dynamic_frame,
     connection_type="s3",
