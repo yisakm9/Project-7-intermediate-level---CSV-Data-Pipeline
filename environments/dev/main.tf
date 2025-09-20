@@ -64,6 +64,11 @@ data "aws_iam_policy_document" "lambda_policy" {
     actions   = ["s3:PutObject"]
     resources = ["${module.s3_processed_data.bucket_arn}/*"]
   }
+  # Add permission to start the Step Function
+  statement {
+    actions   = ["states:StartExecution"]
+    resources = [module.step_function.state_machine_arn]
+  }
 }
 
 # --- Policy for Glue ETL Job ---
@@ -114,6 +119,7 @@ module "lambda_preprocessing" {
   trigger_bucket_id    = module.s3_raw_data.bucket_id
   environment_variables = {
     DESTINATION_BUCKET = module.s3_processed_data.bucket_id
+    STATE_MACHINE_ARN  = module.step_function.state_machine_arn
   }
 }
 
@@ -285,4 +291,42 @@ resource "aws_s3_bucket_cors_configuration" "raw_data_cors" {
     allowed_origins = ["https://${module.frontend.cloudfront_domain_name}"]
     expose_headers  = ["ETag"]
   }
+}
+
+# --- IAM Role for Step Function ---
+data "aws_iam_policy_document" "sfn_assume_role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["states.amazonaws.com"]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "sfn_policy" {
+  statement {
+    actions = [
+      "glue:StartCrawler",
+      "glue:GetCrawler",
+      "glue:StartJobRun",
+      "glue:GetJobRun"
+    ]
+    resources = ["*"] # Scope down in production
+  }
+}
+
+module "iam_sfn_role" {
+  source                  = "../../modules/iam"
+  role_name               = "CSV-Step-Function-Role-Dev"
+  assume_role_policy_json = data.aws_iam_policy_document.sfn_assume_role.json
+  create_custom_policy    = true
+  custom_policy_json      = data.aws_iam_policy_document.sfn_policy.json
+}
+module "step_function" {
+  source                 = "../../modules/step_function"
+  state_machine_name     = "CSV-Pipeline-Orchestrator-Dev"
+  state_machine_role_arn = module.iam_sfn_role.role_arn
+  glue_crawler_name      = module.glue_etl.crawler_name
+  glue_job_name          = module.glue_etl.job_name
 }

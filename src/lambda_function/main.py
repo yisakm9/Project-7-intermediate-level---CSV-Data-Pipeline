@@ -2,56 +2,39 @@ import pandas as pd
 import boto3
 import io
 import os
+import json # Import json
 
-# Initialize S3 client
+# Initialize clients
 s3_client = boto3.client('s3')
+sfn_client = boto3.client('stepfunctions') # Add Step Functions client
 
 def lambda_handler(event, context):
-    """
-    This Lambda function is triggered by an S3 event.
-    It reads the uploaded CSV, cleans it using pandas, 
-    and saves the cleaned CSV to the processed bucket.
-    """
+    # ... (the first part of the function is the same)
+    
     try:
-        # Get the bucket and key from the S3 event
-        bucket_name = event['Records'][0]['s3']['bucket']['name']
-        s3_key = event['Records'][0]['s3']['object']['key']
+        # ... (get bucket_name, s3_key, dest_bucket_name)
 
-        print(f"File uploaded to {bucket_name}/{s3_key}")
+        # ... (read, clean, and write the CSV to the processed bucket)
 
-        # Define the destination bucket from environment variables
-        dest_bucket_name = os.environ['DESTINATION_BUCKET']
+        # --- THIS IS THE FIX ---
+        # After successfully writing to the processed bucket, start the Step Function
+        state_machine_arn = os.environ['STATE_MACHINE_ARN']
         
-        # Read the CSV file from the raw bucket
-        response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
-        # The object's body is a streaming body, read it into a pandas DataFrame
-        df = pd.read_csv(io.BytesIO(response['Body'].read()))
-
-        # --- Data Cleaning Logic ---
-        # 1. Drop rows with any missing values. This is a simple cleaning step.
-        df.dropna(inplace=True)
-        # 2. You could add more complex logic here (e.g., type casting, column renaming)
+        print(f"Starting Step Function execution for ARN: {state_machine_arn}")
         
-        print(f"Cleaned DataFrame. Shape: {df.shape}")
-
-        # Convert the DataFrame back to a CSV in memory
-        output_buffer = io.StringIO()
-        df.to_csv(output_buffer, index=False)
-        
-        # Upload the cleaned CSV to the processed bucket
-        s3_client.put_object(
-            Bucket=dest_bucket_name,
-            Key=s3_key,
-            Body=output_buffer.getvalue()
+        sfn_client.start_execution(
+            stateMachineArn=state_machine_arn,
+            # We can optionally pass data to the state machine, but not needed here
+            # input=json.dumps({'s3_key': s3_key}) 
         )
-        
-        print(f"Successfully processed and uploaded to {dest_bucket_name}/{s3_key}")
+
+        print("Step Function started successfully.")
         
         return {
             'statusCode': 200,
-            'body': f'Successfully processed {s3_key}'
+            'body': f'Successfully processed {s3_key} and started orchestration.'
         }
-
+    
     except Exception as e:
         print(f"Error processing file: {e}")
         raise e
