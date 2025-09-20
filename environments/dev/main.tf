@@ -323,10 +323,16 @@ module "iam_sfn_role" {
   create_custom_policy    = true
   custom_policy_json      = data.aws_iam_policy_document.sfn_policy.json
 }
+# --- Step Function Orchestrator ---
 module "step_function" {
-  source                 = "../../modules/step_function"
-  state_machine_name     = "CSV-Pipeline-Orchestrator-Dev"
-  state_machine_role_arn = module.iam_sfn_role.role_arn
-  glue_crawler_name      = module.glue_etl.crawler_name
-  glue_job_name          = module.glue_etl.job_name
+  source                    = "../../modules/step_function"
+  state_machine_name        = "CSV-Pipeline-Orchestrator-Dev"
+  state_machine_role_arn    = module.iam_sfn_role.role_arn
+  glue_crawler_name         = module.glue_etl.crawler_name
+  glue_job_name             = module.glue_etl.job_name
+  
+  # --- PASS THE NEW VARIABLES ---
+  glue_database_name        = module.glue_etl.database_name
+  glue_crawler_table_name   = module.glue_etl.table_name
+  final_bucket_name         = module.s3_final_data.bucket_id
 }

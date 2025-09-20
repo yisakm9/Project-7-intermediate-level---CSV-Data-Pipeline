@@ -5,57 +5,61 @@ from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
 from awsglue.dynamicframe import DynamicFrame
-# Import the functions we need for data cleaning
 from pyspark.sql.functions import col, sum as _sum, regexp_extract
 from pyspark.sql.types import StringType
 
-# Get job arguments
-args = getResolvedOptions(sys.argv, ['JOB_NAME', 'input_path', 'output_path'])
+args = getResolvedOptions(sys.argv, ['JOB_NAME'])
 
-# Initialize contexts
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(args['JOB_NAME'], args)
 
-# Read the preprocessed data from the S3 input path
-input_dynamic_frame = glueContext.create_dynamic_frame.from_options(
-    connection_type="s3",
-    connection_options={"paths": [args['input_path']]},
-    format="csv",
-    format_options={"withHeader": True}
+# --- THIS IS THE FIX ---
+# We now use the Glue Data Catalog directly, which is the best practice.
+# The database and table names are passed in as arguments.
+# This makes the job more reusable.
+
+# Get job arguments passed from the Step Function
+args = getResolvedOptions(sys.argv, [
+    'JOB_NAME',
+    'input_database',
+    'input_table'
+])
+
+# Read data directly from the Glue Data Catalog
+input_dynamic_frame = glueContext.create_dynamic_frame.from_catalog(
+    database=args['input_database'],
+    table_name=args['input_table']
 )
 
 df = input_dynamic_frame.toDF()
 
-# --- THIS IS THE FINAL FIX ---
-# Robust Data Cleaning and Transformation Logic
+print("--- Initial Schema from Glue Catalog ---")
+df.printSchema()
 
-# 1. Clean the 'Units Sold' column by extracting leading numbers
-# The regex '(\d+)' captures one or more digits at the start of the string.
-df = df.withColumn("Cleaned Units Sold", regexp_extract(col("Units Sold"), r"(\d+)", 1))
+# --- Transformation Logic using CORRECT column names ---
+# The crawler normalizes column names (e.g., "Units Sold" -> "units_sold")
+df = df.withColumn("Cleaned Units Sold", regexp_extract(col("units_sold"), r"(\d+)", 1))
 
-# 2. Cast columns to the correct numeric types for calculation
 df = df.withColumn("Units Sold Int", col("Cleaned Units Sold").cast("integer"))
-df = df.withColumn("Unit Price Float", col("Unit Price").cast("float"))
+df = df.withColumn("Unit Price Float", col("unit_price").cast("float"))
 
-# 3. Calculate total revenue for each record
 df = df.withColumn("Total Revenue", col("Units Sold Int") * col("Unit Price Float"))
 
-# 4. Group by 'Item Type' and calculate the sum of 'Total Revenue'
-#    Then, cast the final result to a StringType so it's never null in the JSON.
-aggregated_df = df.groupBy("Item Type") \
+aggregated_df = df.groupBy("item_type") \
                   .agg(_sum("Total Revenue").alias("AggregatedRevenue")) \
                   .withColumn("AggregatedRevenue", col("AggregatedRevenue").cast(StringType()))
 
-print("Aggregation complete. Resulting schema:")
+print("--- Final Aggregated Schema ---")
 aggregated_df.printSchema()
 
-# Convert back to DynamicFrame
 output_dynamic_frame = DynamicFrame.fromDF(aggregated_df, glueContext, "aggregated_df")
 
-# Write the final data to the output path in Parquet format
+# This is also a fix. The output path must be passed to the job.
+args = getResolvedOptions(sys.argv, ['JOB_NAME', 'output_path'])
+
 glueContext.write_dynamic_frame.from_options(
     frame=output_dynamic_frame,
     connection_type="s3",

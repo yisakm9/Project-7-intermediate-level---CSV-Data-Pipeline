@@ -19,7 +19,6 @@ resource "aws_sfn_state_machine" "this" {
         Type = "Choice",
         Choices = [
           {
-            # If the crawler is running or stopping, wait.
             Or = [
               {
                 Variable   = "$.CrawlerStatus.Crawler.State",
@@ -33,13 +32,12 @@ resource "aws_sfn_state_machine" "this" {
             Next = "WaitForCrawler"
           }
         ],
-        # If it's READY, we can start it.
         Default = "StartCrawlerExecution"
       },
       WaitForCrawler = {
         Type    = "Wait",
         Seconds = 30,
-        Next    = "GetInitialCrawlerStatus" # Loop back to check the status again
+        Next    = "GetInitialCrawlerStatus"
       },
       StartCrawlerExecution = {
         Type = "Task",
@@ -85,8 +83,15 @@ resource "aws_sfn_state_machine" "this" {
       StartGlueJob = {
         Type = "Task",
         Resource = "arn:aws:states:::glue:startJobRun.sync",
+        # --- THIS IS THE FIX ---
+        # Pass all required arguments to the Glue Job script
         Parameters = {
-          JobName = var.glue_job_name
+          JobName = var.glue_job_name,
+          "Arguments" = {
+            "--input_database" = var.glue_database_name,
+            "--input_table"    = var.glue_crawler_table_name,
+            "--output_path"    = "s3://${var.final_bucket_name}/"
+          }
         },
         End = true
       }
