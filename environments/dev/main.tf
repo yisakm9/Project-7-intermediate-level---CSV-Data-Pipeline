@@ -325,16 +325,12 @@ module "iam_sfn_role" {
 }
 # --- Step Function Orchestrator ---
 module "step_function" {
-  source                    = "../../modules/step_function"
-  state_machine_name        = "CSV-Pipeline-Orchestrator-Dev"
-  state_machine_role_arn    = module.iam_sfn_role.role_arn
-  glue_crawler_name         = module.glue_etl.crawler_name
-  glue_job_name             = module.glue_etl.job_name
+  source                 = "../../modules/step_function"
+  state_machine_name     = "CSV-Pipeline-Orchestrator-Dev"
+  state_machine_role_arn = module.iam_sfn_role.role_arn
+  glue_job_name          = module.glue_etl.job_name
   
-
-  glue_database_name        = module.glue_etl.database_name
-  # The table created by the crawler will be named after the PROCESSED bucket.
-  # We replace hyphens with underscores just in case, which is a robust practice.
-  glue_crawler_table_name   = replace(module.s3_processed_data.bucket_id, "-", "_")
-  final_bucket_name         = module.s3_final_data.bucket_id
+  # Pass the S3 bucket names directly
+  processed_bucket_name  = module.s3_processed_data.bucket_id
+  final_bucket_name      = module.s3_final_data.bucket_id
 }
