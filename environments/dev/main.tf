@@ -137,7 +137,7 @@ resource "aws_s3_object" "glue_script" {
 module "glue_etl" {
   source                       = "../../modules/glue"
   crawler_name                 = "CSV-Data-Crawler-Dev"
-  crawler_s3_target_path       = module.s3_final_data.bucket_id
+  crawler_s3_target_path       = module.s3_processed_data.bucket_id
   crawler_iam_role_arn         = module.iam_glue_role.role_arn
   database_name                = "csv_data_pipeline_db_dev"
   job_name                     = "CSV-to-Parquet-ETL-Job-Dev"
@@ -331,8 +331,10 @@ module "step_function" {
   glue_crawler_name         = module.glue_etl.crawler_name
   glue_job_name             = module.glue_etl.job_name
   
-  # --- PASS THE NEW VARIABLES ---
+
   glue_database_name        = module.glue_etl.database_name
-  glue_crawler_table_name   = module.glue_etl.table_name
+  # The table created by the crawler will be named after the PROCESSED bucket.
+  # We replace hyphens with underscores just in case, which is a robust practice.
+  glue_crawler_table_name   = replace(module.s3_processed_data.bucket_id, "-", "_")
   final_bucket_name         = module.s3_final_data.bucket_id
 }
