@@ -30,13 +30,10 @@ input_dynamic_frame = glueContext.create_dynamic_frame.from_catalog(
     database=args['input_database'],
     table_name=args['input_table'],
     transformation_ctx="input_dynamic_frame",
-    additional_options={"format": "csv", "header": "true"}
+    additional_options={"classification": "csv", "separator": ",", "withHeader": True}
 )
 
 df = input_dynamic_frame.toDF()
-
-print("--- Initial Schema from Glue Catalog ---")
-# df.printSchema() # This can cause issues in Glue's logging, let's remove it for now.
 
 # --- Transformation Logic using CORRECT, crawler-generated column names ---
 df = df.withColumn("Cleaned Units Sold", regexp_extract(col("`Units Sold`"), r"(\d+)", 1))
@@ -47,9 +44,6 @@ df = df.withColumn("Total Revenue", col("Units Sold Int") * col("Unit Price Floa
 aggregated_df = df.groupBy("`Item Type`") \
                   .agg(_sum("Total Revenue").alias("AggregatedRevenue")) \
                   .withColumn("AggregatedRevenue", col("AggregatedRevenue").cast(StringType()))
-
-print("--- Final Aggregated Schema ---")
-# aggregated_df.printSchema() # Removing for logging safety
 
 output_dynamic_frame = DynamicFrame.fromDF(aggregated_df, glueContext, "aggregated_df")
 
